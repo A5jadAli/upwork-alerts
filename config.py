@@ -17,7 +17,7 @@ TOKEN_ENDPOINT = "https://www.upwork.com/api/v3/oauth2/token"
 import os
 CLIENT_ID = os.environ.get(
     "CLIENT_ID",
-    "https://raw.githubusercontent.com/A5jadAli/upwork-alerts/main/client-metadata.json",
+    "https://cdn.jsdelivr.net/gh/A5jadAli/upwork-alerts@main/client-metadata.json",
 )
 
 REDIRECT_URI = "http://localhost:8765/callback"
