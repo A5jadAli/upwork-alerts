@@ -4,20 +4,23 @@ Polls Upwork for new AI / automation / Python jobs, filters for **fit +
 legitimacy** with an LLM, and **emails a periodic digest of the best ones**.
 Runs as a small always-on process — no Claude session required.
 
-Detection and emailing are **decoupled**: it polls often (to catch jobs while
-they still have few proposals) but only emails a **digest of the top N** every
-few hours — so you get a handful of high-signal emails, not a flood.
+Detection and emailing are **decoupled**, and emailing is **time-of-day aware**:
+it polls often (to catch jobs while they still have few proposals) and emails
+**faster/smaller during US business hours** (apply early) and **slower/larger
+off-peak**. An email is sent **only when qualified matches exist** — never
+padded to a count, never empty.
 
 ## How it works
 ```
-loop.py  (poll every POLL_INTERVAL_SECONDS, default 1h)
+loop.py  (poll every POLL_INTERVAL_SECONDS, default 30 min)
   -> state.get_access_token()      # 24h token; refreshes ~once/day, persists rotation
   -> mcp_upwork.search_all()       # raw Streamable-HTTP MCP -> upwork__find_jobs (4 queries)
   -> drop already-seen (seen.json)
   -> filter.evaluate()             # LLM fit/legitimacy + 0-100 score + code budget gate
   -> queue matches in pending.json
-  -> every DIGEST_INTERVAL_HOURS (default 6h):
-       notify.send_digest()        # email top DIGEST_TOP_N (default 5), ranked by score
+  -> emailing (time-of-day aware, only if matches exist):
+       US peak hours  -> notify.send_digest()  every PEAK_GAP_MINUTES,  up to PEAK_TOP_N (5)
+       off-peak       -> notify.send_digest()  every OFFPEAK_GAP_HOURS, up to OFFPEAK_TOP_N (10)
 ```
 
 Auth uses the **client-id metadata document** method (no Upwork developer app
@@ -120,5 +123,5 @@ set secrets with `fly secrets set`, then `fly deploy`.
 ## Tuning
 Edit `QUERIES`, `SEARCH_FILTERS`, `MIN_FIXED_BUDGET`, or `FREELANCER_PROFILE`
 in `config.py`. Cadence knobs (config or env): `POLL_INTERVAL_SECONDS` (default
-3600 = hourly detection), `DIGEST_INTERVAL_HOURS` (default 6), `DIGEST_TOP_N`
-(default 5).
+1800), `PEAK_START_UTC`/`PEAK_END_UTC` (peak window), `PEAK_GAP_MINUTES` (30) +
+`PEAK_TOP_N` (5), `OFFPEAK_GAP_HOURS` (3) + `OFFPEAK_TOP_N` (10).

@@ -65,11 +65,20 @@ ALERT_TO = os.environ.get("ALERT_TO", "aliasjid009@gmail.com")
 
 # --- Runtime / state ---
 # Detection is decoupled from emailing: we POLL often (to catch jobs while they
-# still have few proposals and to de-dupe), but only EMAIL a digest every few
-# hours with the best N — so you get a handful of high-signal emails, not a flood.
-POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "3600"))   # detect: hourly
-DIGEST_INTERVAL_HOURS = float(os.environ.get("DIGEST_INTERVAL_HOURS", "6"))     # email: every 6h
-DIGEST_TOP_N = int(os.environ.get("DIGEST_TOP_N", "5"))                         # best N per digest
+# still have few proposals and to de-dupe), and EMAIL on a time-of-day-aware
+# schedule. An email is sent ONLY when there are qualified matches — never
+# padded to hit a count, never empty.
+POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "1800"))    # detect every 30 min
+
+# "Peak" = US business hours (UTC): emails come faster + smaller so you can apply
+# early. Off-peak batches less often + larger. Hours are UTC (13:00 UTC ~ 9am ET;
+# 23:59 UTC ~ mid-afternoon PT), covering US client activity coast to coast.
+PEAK_START_UTC = int(os.environ.get("PEAK_START_UTC", "13"))
+PEAK_END_UTC = int(os.environ.get("PEAK_END_UTC", "24"))            # exclusive; 24 => through 23:59
+PEAK_GAP_MINUTES = int(os.environ.get("PEAK_GAP_MINUTES", "30"))    # peak: email at most every 30 min
+PEAK_TOP_N = int(os.environ.get("PEAK_TOP_N", "5"))                 # peak: up to 5 per email
+OFFPEAK_GAP_HOURS = float(os.environ.get("OFFPEAK_GAP_HOURS", "3")) # off-peak: at most every 3 h
+OFFPEAK_TOP_N = int(os.environ.get("OFFPEAK_TOP_N", "10"))          # off-peak: up to 10 per email
 
 TOKEN_FILE = os.environ.get("TOKEN_FILE", "token.json")
 SEEN_FILE = os.environ.get("SEEN_FILE", "seen.json")
