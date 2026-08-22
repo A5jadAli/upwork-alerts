@@ -1,4 +1,6 @@
 """Email the matched jobs via Gmail SMTP."""
+from __future__ import annotations
+
 import html
 import smtplib
 import urllib.parse

@@ -1,4 +1,6 @@
 """One poll cycle: get token -> search -> drop seen -> filter -> email -> save seen."""
+from __future__ import annotations
+
 import time
 
 import config

@@ -5,6 +5,8 @@ the `mcp` SDK: the 2.x SDK mis-parses Upwork's responses and the 1.x SDK sends
 an initialize the gateway rejects. Raw HTTP is simple here and immune to SDK
 churn. Tools are namespaced on the server as `upwork__<name>`.
 """
+from __future__ import annotations
+
 import json
 
 import httpx

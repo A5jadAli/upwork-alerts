@@ -8,6 +8,8 @@ Upwork advertises client_id_metadata_document_supported=true, so CLIENT_ID is a
 URL (client-metadata.json) rather than a portal-issued id. token_endpoint auth
 method is "none" (public client), so PKCE + the resource indicator carry the flow.
 """
+from __future__ import annotations
+
 import base64
 import hashlib
 import os
