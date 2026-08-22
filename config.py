@@ -54,7 +54,7 @@ SEARCH_FILTERS = {
 MIN_FIXED_BUDGET = 10.0          # reject fixed-price jobs with a stated budget under $10
 
 # --- LLM fit/legitimacy filter (OpenAI-compatible; works for OpenAI/Gemini/Grok) ---
-LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
+LLM_API_KEY = os.environ.get("LLM_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
 LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-5-mini")
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1")
 
