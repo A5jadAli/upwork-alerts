@@ -70,6 +70,8 @@ def main():
 
     tokens = auth.exchange_code(_code_holder["code"], verifier)
     refresh_token = tokens.get("refresh_token")
+    import time
+    tokens["expires_at"] = time.time() + int(tokens.get("expires_in", 86400))
     with open("token.json", "w") as f:
         json.dump(tokens, f, indent=2)
     print("\n=== SUCCESS ===")
