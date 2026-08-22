@@ -1,0 +1,9 @@
+{
+  "client_name": "Upwork Job Alerts (personal)",
+  "client_uri": "https://github.com/A5jadAli/upwork-alerts",
+  "redirect_uris": ["http://localhost:8765/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none",
+  "scope": ""
+}
