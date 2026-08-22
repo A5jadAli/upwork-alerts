@@ -8,6 +8,7 @@ Opens Upwork in your browser, you approve, and it:
   2. immediately runs the 4 searches to PROVE custom code gets the same results.
 """
 import http.server
+import json
 import secrets
 import threading
 import urllib.parse
@@ -17,6 +18,7 @@ import auth
 import mcp_upwork
 
 _code_holder = {}
+_done = threading.Event()
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
@@ -32,12 +34,19 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("content-type", "text/html")
         self.end_headers()
         self.wfile.write(b"<h2>Done. You can close this tab and return to the terminal.</h2>")
+        _done.set()
 
     def log_message(self, *a):  # silence
         pass
 
 
 def main():
+    import sys
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+        sys.stderr.reconfigure(line_buffering=True)
+    except Exception:
+        pass
     verifier, challenge = auth.make_pkce()
     state = secrets.token_urlsafe(16)
     url = auth.build_authorize_url(challenge, state)
@@ -47,10 +56,13 @@ def main():
 
     print("\nOpening browser to log in to Upwork...\nIf it doesn't open, paste this:\n")
     print(url, "\n")
-    webbrowser.open(url)
-
-    while "code" not in _code_holder and "error" not in _code_holder:
+    try:
+        webbrowser.open(url)
+    except Exception:
         pass
+
+    if not _done.wait(timeout=300):
+        raise SystemExit("Timed out after 5 min waiting for the browser callback.")
     if _code_holder.get("error"):
         raise SystemExit(f"Authorization failed: {_code_holder['error']}")
     if _code_holder.get("state") != state:
@@ -58,8 +70,11 @@ def main():
 
     tokens = auth.exchange_code(_code_holder["code"], verifier)
     refresh_token = tokens.get("refresh_token")
+    with open("token.json", "w") as f:
+        json.dump(tokens, f, indent=2)
     print("\n=== SUCCESS ===")
     print("Access token acquired. expires_in:", tokens.get("expires_in"))
+    print("Tokens saved to token.json (gitignored).")
     if refresh_token:
         print("\nSAVE THIS as the GitHub secret UPWORK_REFRESH_TOKEN:\n")
         print(refresh_token, "\n")
