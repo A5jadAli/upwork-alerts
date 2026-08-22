@@ -1,46 +1,103 @@
-"""Thin MCP client for Upwork's hosted server. Calls the same `find_jobs` tool
-the Claude session used, with the same {action, org_uid, params} shape.
+"""Minimal raw-HTTP MCP client for Upwork's hosted server.
+
+We talk the Streamable-HTTP MCP protocol directly with httpx instead of using
+the `mcp` SDK: the 2.x SDK mis-parses Upwork's responses and the 1.x SDK sends
+an initialize the gateway rejects. Raw HTTP is simple here and immune to SDK
+churn. Tools are namespaced on the server as `upwork__<name>`.
 """
-import asyncio
 import json
 
-from mcp import ClientSession
-from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
+import httpx
 
 import config
 
+PROTOCOL_VERSION = "2025-06-18"
+FIND_JOBS_TOOL = "upwork__find_jobs"
 
-async def _call_find_jobs(access_token: str, query: str, filters: dict) -> list[dict]:
-    headers = {"Authorization": f"Bearer {access_token}"}
-    async with create_mcp_http_client(headers=headers) as http_client:
-        async with streamable_http_client(config.MCP_URL, http_client=http_client) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool(
-                    "find_jobs",
-                    {
-                        "action": "search",
-                        "org_uid": config.ORG_UID,
-                        "params": {"query": query, **filters},
-                    },
-                )
-    text = "".join(
-        c.text for c in result.content if getattr(c, "type", None) == "text"
-    )
-    data = json.loads(text)
-    return data.get("jobs", [])
+
+class UpworkMCP:
+    def __init__(self, access_token: str):
+        self._token = access_token
+        self._sid: str | None = None
+        self._http = httpx.Client(timeout=60)
+
+    def _headers(self) -> dict:
+        h = {
+            "Authorization": f"Bearer {self._token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "MCP-Protocol-Version": PROTOCOL_VERSION,
+        }
+        if self._sid:
+            h["Mcp-Session-Id"] = self._sid
+        return h
+
+    def _post(self, payload: dict) -> httpx.Response:
+        return self._http.post(config.MCP_URL, headers=self._headers(), json=payload)
+
+    @staticmethod
+    def _parse(resp: httpx.Response) -> dict:
+        body = resp.text
+        if "text/event-stream" in (resp.headers.get("content-type") or ""):
+            body = "".join(
+                line[5:].strip()
+                for line in body.splitlines()
+                if line.startswith("data:")
+            )
+        return json.loads(body)
+
+    def initialize(self) -> None:
+        r = self._post({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {
+                "protocolVersion": PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": {"name": "upwork-alerts", "version": "1.0"},
+            },
+        })
+        r.raise_for_status()
+        self._sid = r.headers.get("mcp-session-id")
+        # fire-and-forget the initialized notification (server returns 202)
+        self._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
+
+    def call_tool(self, name: str, arguments: dict) -> dict:
+        r = self._post({
+            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": {"name": name, "arguments": arguments},
+        })
+        if r.status_code != 200:
+            raise RuntimeError(f"{name} HTTP {r.status_code}: {r.text[:300]}")
+        data = self._parse(r)
+        if "error" in data:
+            raise RuntimeError(f"{name} error: {data['error']}")
+        content = data.get("result", {}).get("content", [])
+        text = "".join(c.get("text", "") for c in content if c.get("type") == "text")
+        return json.loads(text)
+
+    def find_jobs(self, query: str, filters: dict) -> list[dict]:
+        payload = self.call_tool(FIND_JOBS_TOOL, {
+            "action": "search",
+            "org_uid": config.ORG_UID,
+            "params": {"query": query, **filters},
+        })
+        return payload.get("jobs", [])
+
+    def close(self) -> None:
+        self._http.close()
 
 
 def search_all(access_token: str) -> list[dict]:
-    """Run every configured query, dedupe within this poll, return job dicts."""
-    async def _run():
+    """Run every configured query in one MCP session, dedupe, return job dicts."""
+    mcp = UpworkMCP(access_token)
+    mcp.initialize()
+    try:
         seen, jobs = set(), []
         for q in config.QUERIES:
-            for job in await _call_find_jobs(access_token, q, config.SEARCH_FILTERS):
+            for job in mcp.find_jobs(q, config.SEARCH_FILTERS):
                 jid = str(job.get("id"))
-                if jid not in seen:
+                if jid and jid not in seen:
                     seen.add(jid)
                     jobs.append(job)
         return jobs
-
-    return asyncio.run(_run())
+    finally:
+        mcp.close()
