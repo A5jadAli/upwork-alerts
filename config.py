@@ -64,9 +64,16 @@ GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 ALERT_TO = os.environ.get("ALERT_TO", "aliasjid009@gmail.com")
 
 # --- Runtime / state ---
-POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "300"))
+# Detection is decoupled from emailing: we POLL often (to catch jobs while they
+# still have few proposals and to de-dupe), but only EMAIL a digest every few
+# hours with the best N — so you get a handful of high-signal emails, not a flood.
+POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "3600"))   # detect: hourly
+DIGEST_INTERVAL_HOURS = float(os.environ.get("DIGEST_INTERVAL_HOURS", "6"))     # email: every 6h
+DIGEST_TOP_N = int(os.environ.get("DIGEST_TOP_N", "5"))                         # best N per digest
+
 TOKEN_FILE = os.environ.get("TOKEN_FILE", "token.json")
 SEEN_FILE = os.environ.get("SEEN_FILE", "seen.json")
+PENDING_FILE = os.environ.get("PENDING_FILE", "pending.json")
 SEEN_MAX = 800
 
 # Freelancer profile summary the LLM uses to judge fit.

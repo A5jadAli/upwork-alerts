@@ -22,7 +22,9 @@ Mark fit=true ONLY if ALL hold:
 - Legitimate: not a scam/spam pattern, no off-platform payment bait, no credential/login-harvesting or captcha-bypass gigs.
 - Reachable: NOT restricted to a location the freelancer can't meet (e.g. "must be US-based"). Freelancer is remote in Pakistan.
 
-Reply with ONLY a JSON object: {{"fit": true|false, "reason": "<max 12 words>"}}"""
+Also rate the opportunity 0-100 (`score`) for how good it is for THIS freelancer — weigh skill match, budget/rate, client quality (rating, hires), and how winnable it looks for a new freelancer. Use score only to rank; fit is the gate.
+
+Reply with ONLY a JSON object: {{"fit": true|false, "score": <0-100 integer>, "reason": "<max 12 words>"}}"""
 
 
 def _budget_ok(job: dict) -> bool:
@@ -55,12 +57,12 @@ def _job_view(job: dict) -> dict:
 
 
 def evaluate(job: dict) -> dict:
-    """Return {'fit': bool, 'reason': str}."""
+    """Return {'fit': bool, 'score': int, 'reason': str}."""
     if not _budget_ok(job):
-        return {"fit": False, "reason": "fixed budget under minimum"}
+        return {"fit": False, "score": 0, "reason": "fixed budget under minimum"}
     if not config.LLM_API_KEY:
         # No key configured -> conservative pass-through so nothing is lost silently.
-        return {"fit": True, "reason": "no LLM key; unfiltered"}
+        return {"fit": True, "score": 50, "reason": "no LLM key; unfiltered"}
 
     payload = {
         "model": config.LLM_MODEL,
@@ -80,8 +82,16 @@ def evaluate(job: dict) -> dict:
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"]
         verdict = json.loads(content)
-        return {"fit": bool(verdict.get("fit")), "reason": str(verdict.get("reason", ""))[:80]}
+        try:
+            score = int(verdict.get("score", 50))
+        except (TypeError, ValueError):
+            score = 50
+        return {
+            "fit": bool(verdict.get("fit")),
+            "score": max(0, min(100, score)),
+            "reason": str(verdict.get("reason", ""))[:80],
+        }
     except Exception as e:
         # On any LLM error, fail OPEN (alert) so a good job is never dropped by an outage.
         print(f"[filter] LLM error, passing through: {e!r}")
-        return {"fit": True, "reason": "filter error; passed through"}
+        return {"fit": True, "score": 50, "reason": "filter error; passed through"}

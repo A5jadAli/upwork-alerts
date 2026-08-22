@@ -59,3 +59,18 @@ def save_seen(ids) -> None:
     ids = list(ids)[-config.SEEN_MAX:]
     with open(config.SEEN_FILE, "w") as f:
         json.dump({"seen_ids": ids}, f)
+
+
+# --- Pending digest queue ---
+# pending.json = {"last_digest_at": <epoch or null>, "jobs": [ <job + _score/_reason> ]}
+
+def load_pending() -> dict:
+    p = _load(config.PENDING_FILE, {"last_digest_at": None, "jobs": []})
+    p.setdefault("last_digest_at", None)
+    p.setdefault("jobs", [])
+    return p
+
+
+def save_pending(p: dict) -> None:
+    with open(config.PENDING_FILE, "w") as f:
+        json.dump(p, f)

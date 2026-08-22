@@ -2,7 +2,7 @@
 
 Two entry points:
   * build_authorize_url() / exchange_code()  -> used once by bootstrap.py (browser login)
-  * get_access_token(refresh_token)          -> used every run, unattended
+  * refresh(refresh_token)                    -> used every run, unattended (see state.py)
 
 Upwork advertises client_id_metadata_document_supported=true, so CLIENT_ID is a
 URL (client-metadata.json) rather than a portal-issued id. token_endpoint auth
@@ -14,7 +14,6 @@ import base64
 import hashlib
 import os
 import secrets
-import time
 
 import httpx
 
@@ -71,14 +70,3 @@ def refresh(refresh_token: str) -> dict:
     r = httpx.post(config.TOKEN_ENDPOINT, data=data, timeout=30)
     r.raise_for_status()
     return r.json()
-
-
-def get_access_token(refresh_token: str) -> tuple[str, str | None]:
-    """Unattended path: returns (access_token, maybe_new_refresh_token).
-
-    Logs token lifetimes so we can empirically answer the longevity question.
-    """
-    tok = refresh(refresh_token)
-    expires_in = tok.get("expires_in")
-    print(f"[auth] got access token, expires_in={expires_in}s at {time.ctime()}")
-    return tok["access_token"], tok.get("refresh_token")
