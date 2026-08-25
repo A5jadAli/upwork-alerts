@@ -51,6 +51,19 @@ def get_access_token() -> str:
     return t["access_token"]
 
 
+def force_refresh() -> str:
+    """Refresh regardless of the cached expiry (used to self-heal after a 401)."""
+    t = load_tokens()
+    resp = auth.refresh(t["refresh_token"])
+    t["access_token"] = resp["access_token"]
+    if resp.get("refresh_token"):
+        t["refresh_token"] = resp["refresh_token"]
+    t["expires_at"] = time.time() + int(resp.get("expires_in", 86400))
+    save_tokens(t)
+    print("[state] force-refreshed access token after a 401")
+    return t["access_token"]
+
+
 def load_seen() -> set:
     return set(_load(config.SEEN_FILE, {"seen_ids": []}).get("seen_ids", []))
 

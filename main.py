@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import time
 
+import httpx
+
 import config
 import filter as jobfilter
 import mcp_upwork
@@ -28,7 +30,16 @@ def _schedule(now: float):
 
 def poll_once() -> None:
     access_token = state.get_access_token()
-    jobs = mcp_upwork.search_all(access_token)
+    try:
+        jobs = mcp_upwork.search_all(access_token)
+    except httpx.HTTPStatusError as e:
+        # Token rejected despite our cached expiry -> force one refresh and retry.
+        if e.response is not None and e.response.status_code in (401, 403):
+            print(f"[main] token rejected ({e.response.status_code}) — forcing refresh + retry")
+            access_token = state.force_refresh()
+            jobs = mcp_upwork.search_all(access_token)
+        else:
+            raise
 
     seen = state.load_seen()
     new = [j for j in jobs if str(j.get("id")) not in seen]
