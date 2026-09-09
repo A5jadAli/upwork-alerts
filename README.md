@@ -1,26 +1,23 @@
 # Upwork Job Alerts — always-on, self-hosted
 
 Polls Upwork for new AI / automation / Python jobs, filters for **fit +
-legitimacy** with an LLM, and **emails a periodic digest of the best ones**.
+legitimacy** with an LLM, and **emails new qualified jobs immediately**.
 Runs as a small always-on process — no Claude session required.
 
-Detection and emailing are **decoupled**, and emailing is **time-of-day aware**:
-it polls often (to catch jobs while they still have few proposals) and emails
-**faster/smaller during US business hours** (apply early) and **slower/larger
-off-peak**. An email is sent **only when qualified matches exist** — never
-padded to a count, never empty.
+It combines Upwork's personalized **Most Recent** feed with focused marketplace
+keyword searches, rejects jobs older than 24 hours, and polls every 10 minutes.
+An email is sent **only when qualified matches exist** — never padded or empty.
 
 ## How it works
 ```
-loop.py  (poll every POLL_INTERVAL_SECONDS, default 30 min)
+loop.py  (poll every POLL_INTERVAL_SECONDS, default 10 min)
   -> state.get_access_token()      # 24h token; refreshes ~once/day, persists rotation
-  -> mcp_upwork.search_all()       # raw Streamable-HTTP MCP -> upwork__find_jobs (4 queries)
+  -> mcp_upwork.search_all()       # Most Recent feed + 4 keyword searches
+  -> reject undated or >24h-old jobs; sort newest first
   -> drop already-seen (seen.json)
   -> filter.evaluate()             # LLM fit/legitimacy + 0-100 score + code budget gate
-  -> queue matches in pending.json
-  -> emailing (time-of-day aware, only if matches exist):
-       US peak hours  -> notify.send_digest()  every PEAK_GAP_MINUTES,  up to PEAK_TOP_N (5)
-       off-peak       -> notify.send_digest()  every OFFPEAK_GAP_HOURS, up to OFFPEAK_TOP_N (10)
+  -> persist matches in pending.json before SMTP
+  -> notify.send_digest() immediately (up to ALERT_TOP_N, default 10)
 ```
 
 Auth uses the **client-id metadata document** method (no Upwork developer app
@@ -122,6 +119,5 @@ set secrets with `fly secrets set`, then `fly deploy`.
 
 ## Tuning
 Edit `QUERIES`, `SEARCH_FILTERS`, `MIN_FIXED_BUDGET`, or `FREELANCER_PROFILE`
-in `config.py`. Cadence knobs (config or env): `POLL_INTERVAL_SECONDS` (default
-1800), `PEAK_START_UTC`/`PEAK_END_UTC` (peak window), `PEAK_GAP_MINUTES` (30) +
-`PEAK_TOP_N` (5), `OFFPEAK_GAP_HOURS` (3) + `OFFPEAK_TOP_N` (10).
+in `config.py`. Runtime knobs (config or env): `POLL_INTERVAL_SECONDS` (default
+600), `MAX_JOB_AGE_HOURS` (24), and `ALERT_TOP_N` (10).

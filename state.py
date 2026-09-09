@@ -74,8 +74,8 @@ def save_seen(ids) -> None:
         json.dump({"seen_ids": ids}, f)
 
 
-# --- Pending digest queue ---
-# pending.json = {"last_digest_at": <epoch or null>, "jobs": [ <job + _score/_reason> ]}
+# --- Durable pending alert queue ---
+# Persists matches before SMTP so transient email errors cannot lose them.
 
 def load_pending() -> dict:
     p = _load(config.PENDING_FILE, {"last_digest_at": None, "jobs": []})

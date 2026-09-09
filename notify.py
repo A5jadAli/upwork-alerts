@@ -7,6 +7,7 @@ import urllib.parse
 from email.mime.text import MIMEText
 
 import config
+import job_time
 
 
 def _job_url(job: dict) -> str:
@@ -48,9 +49,12 @@ def _row(job: dict) -> str:
     title = job.get("title") or "(untitled)"
     budget = job.get("budget")
     money = f"${budget} fixed" if job.get("job_type") == "fixed" else "Hourly"
-    props = job.get("proposal_count", "?")
+    props = job.get("proposal_count")
+    if props is None:
+        props = job.get("proposals_tier", "?")
     reason = job.get("_reason", "")
     score = job.get("_score", "")
+    posted = job_time.age_label(job)
     client_name = _client_name(job)
     desc = (job.get("description_snippet") or "").replace("<untrusted_participant_content>", "").replace("</untrusted_participant_content>", "").strip()
     e = html.escape
@@ -70,7 +74,7 @@ def _row(job: dict) -> str:
         <span style="float:right;font-size:12px;color:#888">score {e(str(score))}</span>
       </div>
       <div style="color:#555;font-size:13px;margin-bottom:8px">
-        {e(money)} &middot; {e(str(props))} proposals &middot;
+        <b>Posted {e(posted)}</b> &middot; {e(money)} &middot; {e(str(props))} proposals &middot;
         {client_summary}
       </div>
       <div style="color:#111;font-size:13px;margin-bottom:8px">{e(desc[:300])}</div>
@@ -79,7 +83,7 @@ def _row(job: dict) -> str:
 
 
 def send_digest(jobs: list[dict], extra: int = 0) -> None:
-    """Email the top matched jobs for this digest window (already ranked)."""
+    """Email the newest qualified jobs for this poll (already ranked)."""
     if not jobs:
         return
     if not (config.GMAIL_USER and config.GMAIL_APP_PASSWORD):
@@ -88,14 +92,14 @@ def send_digest(jobs: list[dict], extra: int = 0) -> None:
         return
 
     first = jobs[0].get("title", "job")
-    subject = f"Upwork digest — {len(jobs)} top match{'es' if len(jobs) > 1 else ''}: {first[:55]}"
-    more = (f'<p style="color:#888;font-size:12px">+ {extra} more match(es) this window '
-            f'not shown (showing top {len(jobs)}).</p>') if extra else ""
+    subject = f"New Upwork alert — {len(jobs)} match{'es' if len(jobs) > 1 else ''}: {first[:55]}"
+    more = (f'<p style="color:#888;font-size:12px">+ {extra} more match(es) queued '
+            f'for the next alert (showing top {len(jobs)}).</p>') if extra else ""
     body = f"""<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:640px">
-      <p style="font-size:15px">Your top {len(jobs)} Upwork match(es) since the last digest:</p>
+      <p style="font-size:15px">Your newest qualified Upwork match(es):</p>
       {''.join(_row(j) for j in jobs)}
       {more}
-      <p style="color:#999;font-size:12px">Upwork Job Alerts &middot; filters: verified client, &lt;5 proposals, AI/automation/Python &middot; ranked by fit score</p>
+      <p style="color:#999;font-size:12px">Upwork Job Alerts &middot; posted within 24 hours &middot; verified client &middot; &lt;5 proposals &middot; AI/automation/Python fit</p>
     </div>"""
 
     msg = MIMEText(body, "html", "utf-8")

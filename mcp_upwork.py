@@ -12,6 +12,7 @@ import json
 import httpx
 
 import config
+import job_time
 
 PROTOCOL_VERSION = "2025-06-18"
 FIND_JOBS_TOOL = "upwork__find_jobs"
@@ -84,22 +85,60 @@ class UpworkMCP:
         })
         return payload.get("jobs", [])
 
+    def smart_search(self, filters: dict) -> list[dict]:
+        """Read Upwork's personalized Most Recent recommendation feed."""
+        payload = self.call_tool(FIND_JOBS_TOOL, {
+            "action": "smart_search",
+            "org_uid": config.ORG_UID,
+            "params": filters,
+        })
+        return payload.get("jobs", [])
+
     def close(self) -> None:
         self._http.close()
 
 
 def search_all(access_token: str) -> list[dict]:
-    """Run every configured query in one MCP session, dedupe, return job dicts."""
+    """Combine personalized and keyword results, then enforce true freshness."""
     mcp = UpworkMCP(access_token)
     mcp.initialize()
     try:
-        seen, jobs = set(), []
+        result_sets = [mcp.smart_search(config.SMART_SEARCH_FILTERS)]
         for q in config.QUERIES:
-            for job in mcp.find_jobs(q, config.SEARCH_FILTERS):
-                jid = str(job.get("id"))
-                if jid and jid not in seen:
-                    seen.add(jid)
-                    jobs.append(job)
+            result_sets.append(mcp.find_jobs(q, config.SEARCH_FILTERS))
+
+        seen, jobs = set(), []
+        raw_count = 0
+        old_count = 0
+        undated_count = 0
+        applied_count = 0
+        for results in result_sets:
+            for job in results:
+                raw_count += 1
+                raw_id = job.get("id") or job.get("job_id")
+                if not raw_id:
+                    continue
+                jid = str(raw_id)
+                if jid in seen:
+                    continue
+                seen.add(jid)
+                job["id"] = jid
+                if job.get("applied") is True or job.get("is_applied") is True:
+                    applied_count += 1
+                    continue
+                if job_time.published_at(job) is None:
+                    undated_count += 1
+                    continue
+                if not job_time.is_recent(job, config.MAX_JOB_AGE_HOURS):
+                    old_count += 1
+                    continue
+                jobs.append(job)
+
+        jobs.sort(key=job_time.published_timestamp, reverse=True)
+        print(
+            f"[mcp] raw={raw_count} unique={len(seen)} fresh={len(jobs)} "
+            f"old={old_count} undated={undated_count} applied={applied_count}"
+        )
         return jobs
     finally:
         mcp.close()
