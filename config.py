@@ -58,7 +58,7 @@ SMART_SEARCH_FILTERS = {
     "proposals_max": 4,
     "limit": 10,
 }
-MAX_JOB_AGE_HOURS = float(os.environ.get("MAX_JOB_AGE_HOURS", "24"))
+MAX_JOB_AGE_HOURS = float(os.environ.get("MAX_JOB_AGE_HOURS", "1"))
 MIN_FIXED_BUDGET = 10.0          # reject fixed-price jobs with a stated budget under $10
 
 # --- LLM fit/legitimacy filter (OpenAI-compatible; works for OpenAI/Gemini/Grok) ---

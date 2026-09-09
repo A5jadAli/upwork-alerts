@@ -5,7 +5,7 @@ legitimacy** with an LLM, and **emails new qualified jobs immediately**.
 Runs as a small always-on process — no Claude session required.
 
 It combines Upwork's personalized **Most Recent** feed with focused marketplace
-keyword searches, rejects jobs older than 24 hours, and polls every 10 minutes.
+keyword searches, rejects jobs older than one hour, and polls every 10 minutes.
 An email is sent **only when qualified matches exist** — never padded or empty.
 
 ## How it works
@@ -13,7 +13,7 @@ An email is sent **only when qualified matches exist** — never padded or empty
 loop.py  (poll every POLL_INTERVAL_SECONDS, default 10 min)
   -> state.get_access_token()      # 24h token; refreshes ~once/day, persists rotation
   -> mcp_upwork.search_all()       # Most Recent feed + 4 keyword searches
-  -> reject undated or >24h-old jobs; sort newest first
+  -> reject undated or >1h-old jobs; sort newest first
   -> drop already-seen (seen.json)
   -> filter.evaluate()             # LLM fit/legitimacy + 0-100 score + code budget gate
   -> persist matches in pending.json before SMTP
@@ -120,4 +120,4 @@ set secrets with `fly secrets set`, then `fly deploy`.
 ## Tuning
 Edit `QUERIES`, `SEARCH_FILTERS`, `MIN_FIXED_BUDGET`, or `FREELANCER_PROFILE`
 in `config.py`. Runtime knobs (config or env): `POLL_INTERVAL_SECONDS` (default
-600), `MAX_JOB_AGE_HOURS` (24), and `ALERT_TOP_N` (10).
+600), `MAX_JOB_AGE_HOURS` (1), and `ALERT_TOP_N` (10).
