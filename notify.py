@@ -9,11 +9,38 @@ from email.mime.text import MIMEText
 import config
 
 
-def _job_url(title: str) -> str:
-    # Upwork obfuscates the ciphertext, so link to an exact-title search — lands
-    # on the specific post when you're logged in.
-    q = urllib.parse.quote(f'"{title}"')
+def _job_url(job: dict) -> str:
+    """Prefer the canonical URL now returned by Upwork, with a safe fallback."""
+    url = job.get("url")
+    if isinstance(url, str) and url.startswith("https://www.upwork.com/"):
+        return url
+
+    # Older saved payloads did not include a URL. An exact-title search still
+    # gives those alerts a useful destination.
+    q = urllib.parse.quote(f'"{job.get("title") or ""}"')
     return f"https://www.upwork.com/nx/search/jobs/?q={q}"
+
+
+def _client_name(job: dict) -> str | None:
+    """Return a name only when Upwork explicitly supplied one.
+
+    Marketplace search normally withholds client identity. Previous-client
+    results can contain a company name, and this also accepts likely fields if
+    Upwork adds them to the regular client block later. Never guess a person's
+    name from the job description.
+    """
+    client = job.get("client") or {}
+    previous = job.get("previous_client") or {}
+    for value in (
+        job.get("client_name"),
+        client.get("name"),
+        client.get("client_name"),
+        client.get("company_name"),
+        previous.get("company_name"),
+    ):
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 def _row(job: dict) -> str:
@@ -24,18 +51,27 @@ def _row(job: dict) -> str:
     props = job.get("proposal_count", "?")
     reason = job.get("_reason", "")
     score = job.get("_score", "")
+    client_name = _client_name(job)
     desc = (job.get("description_snippet") or "").replace("<untrusted_participant_content>", "").replace("</untrusted_participant_content>", "").strip()
     e = html.escape
+    client_bits = []
+    if client_name:
+        client_bits.append(f"Client: {e(client_name)}")
+    client_bits.extend([
+        e(c.get("country") or "?"),
+        f"{e(str(c.get('total_reviews') or 0))} reviews",
+        f"rating {e(str(c.get('rating') or 'n/a'))}",
+    ])
+    client_summary = " &middot; ".join(client_bits)
     return f"""
     <div style="margin:0 0 20px;padding:14px 16px;border:1px solid #e3e3e3;border-radius:10px">
       <div style="font-size:16px;font-weight:600;margin-bottom:4px">
-        <a href="{_job_url(title)}" style="color:#14a800;text-decoration:none">{e(title)}</a>
+        <a href="{e(_job_url(job), quote=True)}" style="color:#14a800;text-decoration:none">{e(title)}</a>
         <span style="float:right;font-size:12px;color:#888">score {e(str(score))}</span>
       </div>
       <div style="color:#555;font-size:13px;margin-bottom:8px">
         {e(money)} &middot; {e(str(props))} proposals &middot;
-        {e(c.get('country') or '?')} &middot; {e(str(c.get('total_hires') or 0))} hires &middot;
-        rating {e(str(c.get('rating') or 'n/a'))}
+        {client_summary}
       </div>
       <div style="color:#111;font-size:13px;margin-bottom:8px">{e(desc[:300])}</div>
       <div style="font-size:12px;color:#14a800"><b>Why it fits:</b> {e(reason)}</div>
