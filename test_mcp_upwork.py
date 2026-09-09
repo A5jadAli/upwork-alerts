@@ -10,7 +10,7 @@ class SearchAllTests(unittest.TestCase):
     def test_combines_sources_dedupes_and_rejects_old_jobs(self, mcp_class):
         now = datetime.now(timezone.utc)
         recent_1 = (now - timedelta(minutes=5)).isoformat()
-        recent_2 = (now - timedelta(minutes=20)).isoformat()
+        recent_2 = (now - timedelta(minutes=8)).isoformat()
         old = (now - timedelta(hours=25)).isoformat()
         smart = {"id": "newest", "published_date": recent_1}
         duplicate = {"id": "newest", "published_date": recent_1}

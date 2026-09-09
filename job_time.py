@@ -23,14 +23,14 @@ def published_at(job: dict) -> datetime | None:
     return None
 
 
-def is_recent(job: dict, max_age_hours: float, now: datetime | None = None) -> bool:
+def is_recent(job: dict, max_age_minutes: int, now: datetime | None = None) -> bool:
     """Only accept jobs with a valid timestamp inside the freshness window."""
     posted = published_at(job)
     if posted is None:
         return False
     current = now or datetime.now(timezone.utc)
-    age_hours = (current - posted).total_seconds() / 3600
-    return -1 <= age_hours <= max_age_hours
+    age_seconds = (current - posted).total_seconds()
+    return -3600 <= age_seconds <= max_age_minutes * 60
 
 
 def published_timestamp(job: dict) -> float:

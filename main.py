@@ -47,7 +47,7 @@ def poll_once() -> None:
     # Persist before SMTP so a temporary email failure cannot lose an alert.
     pending["jobs"] = [
         job for job in pending["jobs"]
-        if job_time.is_recent(job, config.MAX_JOB_AGE_HOURS)
+        if job_time.is_recent(job, config.MAX_JOB_AGE_MINUTES)
     ]
     state.save_pending(pending)
 

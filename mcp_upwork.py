@@ -129,7 +129,7 @@ def search_all(access_token: str) -> list[dict]:
                 if job_time.published_at(job) is None:
                     undated_count += 1
                     continue
-                if not job_time.is_recent(job, config.MAX_JOB_AGE_HOURS):
+                if not job_time.is_recent(job, config.MAX_JOB_AGE_MINUTES):
                     old_count += 1
                     continue
                 jobs.append(job)

@@ -58,7 +58,7 @@ SMART_SEARCH_FILTERS = {
     "proposals_max": 4,
     "limit": 10,
 }
-MAX_JOB_AGE_HOURS = float(os.environ.get("MAX_JOB_AGE_HOURS", "1"))
+MAX_JOB_AGE_MINUTES = int(os.environ.get("MAX_JOB_AGE_MINUTES", "10"))
 MIN_FIXED_BUDGET = 10.0          # reject fixed-price jobs with a stated budget under $10
 
 # --- LLM fit/legitimacy filter (OpenAI-compatible; works for OpenAI/Gemini/Grok) ---
@@ -74,7 +74,7 @@ ALERT_TO = os.environ.get("ALERT_TO", "aliasjid009@gmail.com")
 # --- Runtime / state ---
 # Poll frequently and email every qualified batch immediately. The keyword
 # search action has no date filter, so freshness is also enforced client-side.
-POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "600"))
+POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "300"))
 ALERT_TOP_N = int(os.environ.get("ALERT_TOP_N", "10"))
 
 TOKEN_FILE = os.environ.get("TOKEN_FILE", "token.json")

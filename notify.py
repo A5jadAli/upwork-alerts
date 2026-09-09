@@ -92,8 +92,8 @@ def send_digest(jobs: list[dict], extra: int = 0) -> None:
         return
 
     first = jobs[0].get("title", "job")
-    freshness = f"{config.MAX_JOB_AGE_HOURS:g} hour"
-    if config.MAX_JOB_AGE_HOURS != 1:
+    freshness = f"{config.MAX_JOB_AGE_MINUTES} minute"
+    if config.MAX_JOB_AGE_MINUTES != 1:
         freshness += "s"
     subject = f"New Upwork alert — {len(jobs)} match{'es' if len(jobs) > 1 else ''}: {first[:55]}"
     more = (f'<p style="color:#888;font-size:12px">+ {extra} more match(es) queued '
